@@ -115,38 +115,47 @@ def _wan_v2_2_text_to_video(params: dict) -> float:
 
 REGISTRY: dict[str, dict] = {
     "fal-ai/nano-banana-2": {
+        "type": "image",
         "description": "Nano Banana 2 — text-to-image (Google, fast, high quality)",
         "calculate": _nano_banana_2,
     },
     "fal-ai/nano-banana": {
+        "type": "image",
         "description": "Nano Banana — text-to-image (original)",
         "calculate": _nano_banana,
     },
     "fal-ai/nano-banana-pro": {
+        "type": "image",
         "description": "Nano Banana Pro — text-to-image",
         "calculate": _nano_banana_pro,
     },
     "fal-ai/flux/dev": {
+        "type": "image",
         "description": "FLUX.1 [dev] — text-to-image",
         "calculate": _flux_dev,
     },
     "fal-ai/flux/schnell": {
+        "type": "image",
         "description": "FLUX.1 [schnell] — text-to-image (fast)",
         "calculate": _flux_schnell,
     },
     "fal-ai/flux-pro/v1.1-ultra": {
+        "type": "image",
         "description": "FLUX1.1 [pro] ultra — text-to-image (2K, high realism)",
         "calculate": _flux_pro_v1_1_ultra,
     },
     "fal-ai/any-llm": {
+        "type": "text",
         "description": "Any LLM — unified LLM gateway",
         "calculate": _any_llm,
     },
     "fal-ai/minimax-video/image-to-video": {
+        "type": "video",
         "description": "Minimax Video — image-to-video",
         "calculate": _minimax_video_image_to_video,
     },
     "fal-ai/wan/v2.2-a14b/text-to-video": {
+        "type": "video",
         "description": "WAN 2.2 — text-to-video",
         "calculate": _wan_v2_2_text_to_video,
     },

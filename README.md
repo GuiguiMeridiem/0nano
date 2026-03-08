@@ -25,6 +25,10 @@ Open-source workflow engine for hyper-realistic AI media content generation.
 │       └── custom.py       ← User-defined step (any Python function)
 ├── pricing/
 │   └── registry.py         ← All model pricing data + cost threshold config
+├── gui/                    ← Web GUI (dark, minimal)
+│   ├── app.py              ← FastAPI server
+│   ├── run.py              ← Launch script
+│   └── static/             ← HTML, CSS, JS
 ├── saved_workflows/        ← Saved workflow snapshots (loadable by name)
 ├── outputs/                ← Generated files saved here (gitignored)
 ├── requirements.txt
@@ -41,7 +45,9 @@ Open-source workflow engine for hyper-realistic AI media content generation.
 git clone https://github.com/yourname/0nano.git
 cd 0nano
 python -m venv .venv
-source .venv/bin/activate
+# Activate the venv:
+#   macOS/Linux:  source .venv/bin/activate
+#   Windows:     .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -56,10 +62,29 @@ Get your key at [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 3. Run the default workflow:
 
 ```bash
-python cockpit.py
+python main.py
 ```
 
 Generated images land in `outputs/`.
+
+4. Or launch the GUI:
+
+```bash
+python -m gui
+```
+
+Opens in a native window. Use `--browser` to open in your system browser instead (works everywhere, no extra setup).
+
+**Platform notes:**
+
+| Platform | Native window | Notes |
+|----------|---------------|-------|
+| **macOS** | ✓ | Spawns in a clean subprocess to avoid OpenGL/libGL conflicts. If it crashes, try `--browser` or run from Terminal.app instead of Cursor. |
+| **Windows** | ✓ | Uses Edge WebView2 (pre-installed on Windows 10/11). If missing, install [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/). |
+| **Linux** | ✓ | Requires WebKitGTK. Install system deps first: |
+| | | **Debian/Ubuntu:** `sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1` |
+| | | **Fedora:** `sudo dnf install python3-gobject gtk3 webkit2gtk3` |
+| | | **Arch:** `sudo pacman -S python-gobject gtk3 webkit2gtk` |
 
 ---
 
@@ -106,6 +131,34 @@ workflow.run()
 ```
 
 List available saved workflows by looking in `saved_workflows/`.
+
+---
+
+### JSON Workflows
+
+Workflows can be defined as JSON and passed to `main.py` or built programmatically:
+
+```bash
+python main.py --workflow '{"steps": [{"type": "ai_image", "name": "Gen", "output_key": "img", "model_id": "fal-ai/nano-banana-2", "params": {"prompt": "A sunset"}}]}'
+python main.py --workflow workflow.json
+python main.py --workflow workflow.json --confirmed
+```
+
+`WorkflowEngine.from_dict(data)` builds an engine from a dict. `WorkflowEngine.load("name")` loads from `saved_workflows/name.json` or `name.py`.
+
+---
+
+### GUI
+
+`python -m gui` opens the GUI in a native window:
+
+- Add and configure workflow steps (image, text, video, save outputs)
+- Estimate cost before running
+- Confirm cost (or type amount if above $5 threshold)
+- Watch progress (current step, elapsed time)
+- View generated images and videos inline
+
+The GUI is dark and minimal. It constructs the workflow JSON and runs it via the API.
 
 ---
 

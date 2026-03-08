@@ -1,0 +1,199 @@
+"""
+0nano GUI — Web interface for building and running workflows.
+
+Run from project root:
+    python gui/app.py
+    # or
+    uvicorn gui.app:app --reload --host 0.0.0.0 --port 5050
+"""
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+import json
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from queue import Queue, Empty
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from workflow.engine import WorkflowEngine, SAVED_WORKFLOWS_DIR
+from pricing.registry import REGISTRY, HIGH_COST_THRESHOLD, PricingNotFoundError
+
+app = FastAPI(title="0nano GUI")
+executor = ThreadPoolExecutor(max_workers=2)
+
+
+class WorkflowRequest(BaseModel):
+    workflow: dict
+    confirmed: bool = False
+
+
+class SaveWorkflowRequest(BaseModel):
+    name: str
+    workflow: dict
+
+
+static_dir = PROJECT_ROOT / "gui" / "static"
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    return (static_dir / "index.html").read_text()
+
+
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/api/models")
+async def list_models():
+    """Return models from pricing registry with type hints for GUI."""
+    models = []
+    for mid, info in REGISTRY.items():
+        models.append({
+            "id": mid,
+            "description": info.get("description", ""),
+            "type": info.get("type", "image"),
+        })
+    return {"models": models}
+
+
+@app.post("/api/estimate")
+async def estimate_cost(req: WorkflowRequest):
+    """Return cost breakdown for the workflow."""
+    try:
+        engine = WorkflowEngine.from_dict(req.workflow)
+        breakdown, total = engine.get_cost_breakdown()
+    except PricingNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "breakdown": [{"name": n, "cost": c} for n, c in breakdown],
+        "total": total,
+        "threshold": HIGH_COST_THRESHOLD,
+    }
+
+
+def _run_workflow(workflow_dict: dict, event_queue: Queue):
+    """Run workflow in thread, push events to queue."""
+    try:
+        engine = WorkflowEngine.from_dict(workflow_dict)
+
+        def on_progress(evt: dict):
+            event_queue.put(evt)
+
+        engine.run(skip_confirm=True, progress_callback=on_progress)
+    except Exception as e:
+        event_queue.put({"type": "error", "message": str(e)})
+
+
+def _queue_get(q: Queue, timeout: float = 0.2):
+    try:
+        return q.get(timeout=timeout)
+    except Empty:
+        return None
+
+
+@app.post("/api/run")
+async def run_workflow(req: WorkflowRequest):
+    """Stream workflow progress via SSE. Requires confirmed=True."""
+    if not req.confirmed:
+        raise HTTPException(status_code=400, detail="confirmed must be true")
+
+    event_queue = Queue()
+
+    async def event_stream():
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(executor, _run_workflow, req.workflow, event_queue)
+        while True:
+            evt = await loop.run_in_executor(None, _queue_get, event_queue)
+            if evt is None:
+                await asyncio.sleep(0.05)
+                continue
+            yield f"event: {evt.get('type', 'message')}\ndata: {json.dumps(evt)}\n\n"
+            if evt.get("type") in ("complete", "error"):
+                break
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+outputs_dir = PROJECT_ROOT / "outputs"
+outputs_dir.mkdir(exist_ok=True)
+app.mount("/outputs", StaticFiles(directory=str(outputs_dir)), name="outputs")
+
+
+@app.get("/api/workflows")
+async def list_workflows():
+    """List saved workflow names (from .json and .py files)."""
+    SAVED_WORKFLOWS_DIR.mkdir(exist_ok=True)
+    names = sorted(
+        set(p.stem for p in SAVED_WORKFLOWS_DIR.glob("*.json"))
+        | set(p.stem for p in SAVED_WORKFLOWS_DIR.glob("*.py"))
+    )
+    return {"workflows": names}
+
+
+@app.get("/api/workflows/{name}")
+async def get_workflow(name: str):
+    """Load a saved workflow. Returns JSON for .json files. .py workflows cannot be loaded in GUI."""
+    json_path = SAVED_WORKFLOWS_DIR / f"{name}.json"
+    if json_path.exists():
+        data = json.loads(json_path.read_text())
+        return data
+    raise HTTPException(
+        status_code=404,
+        detail=f"Workflow '{name}' not found or is a .py file (only .json can be loaded in GUI)",
+    )
+
+
+@app.post("/api/workflows/save")
+async def save_workflow(req: SaveWorkflowRequest):
+    """Save workflow as JSON to saved_workflows/<name>.json. Appends _2, _3 if name exists."""
+    SAVED_WORKFLOWS_DIR.mkdir(exist_ok=True)
+    name = req.name.strip() or "workflow"
+    name = "".join(c if c.isalnum() or c in "_-" else "_" for c in name).strip("_") or "workflow"
+    candidate = name
+    counter = 2
+    while (SAVED_WORKFLOWS_DIR / f"{candidate}.json").exists() or (SAVED_WORKFLOWS_DIR / f"{candidate}.py").exists():
+        candidate = f"{name}_{counter}"
+        counter += 1
+    dest = SAVED_WORKFLOWS_DIR / f"{candidate}.json"
+    dest.write_text(json.dumps(req.workflow, indent=2))
+    return {"saved_as": candidate, "path": str(dest)}
+
+
+@app.get("/api/outputs")
+async def list_outputs():
+    """List files in outputs directory."""
+    out_dir = PROJECT_ROOT / "outputs"
+    if not out_dir.exists():
+        return {"files": []}
+    files = []
+    for p in sorted(out_dir.iterdir()):
+        if p.is_file() and not p.name.startswith("."):
+            files.append({
+                "name": p.name,
+                "url": f"/outputs/{p.name}",
+            })
+    return {"files": files}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5050)

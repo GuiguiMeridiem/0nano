@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>0nano</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>0nano</h1>
+      <span class="subtitle">Hyper-realistic AI media procedures</span>
+    </header>
+
+    <main>
+      <section class="procedure-panel">
+        <div class="panel-header">
+          <h2>Procedure</h2>
+          <div class="procedure-actions">
+            <button id="save-btn" class="btn">Save</button>
+            <div class="load-dropdown">
+              <button id="load-btn" class="btn" aria-label="Load saved procedure">Load</button>
+              <div id="load-menu" class="load-menu hidden"></div>
+            </div>
+            <button id="add-step" class="btn btn-primary">+ Add step</button>
+          </div>
+        </div>
+        <div id="steps" class="steps-list"></div>
+      </section>
+
+      <section class="cost-panel">
+        <div class="panel-header">
+          <h2>Cost estimate</h2>
+          <button id="estimate-btn" class="btn">Estimate</button>
+        </div>
+        <div id="cost-display" class="cost-display"></div>
+      </section>
+
+      <section class="run-panel">
+        <button id="run-btn" class="btn btn-run" disabled>Run procedure</button>
+        <p id="run-hint" class="hint">Estimate cost first, then run.</p>
+      </section>
+
+      <section id="progress-panel" class="progress-panel hidden">
+        <h2>Progress</h2>
+        <div id="progress-steps" class="progress-steps"></div>
+        <div id="progress-log" class="progress-log"></div>
+      </section>
+
+      <section id="outputs-panel" class="outputs-panel hidden">
+        <h2>Outputs</h2>
+        <div id="outputs-gallery" class="outputs-gallery"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="modal-title">Confirm</h2>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn">Cancel</button>
+        <button id="modal-confirm" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="save-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Save procedure</h2>
+      <div class="form-group">
+        <label>Name</label>
+        <input id="save-name" type="text" placeholder="my_procedure">
+      </div>
+      <div class="modal-actions">
+        <button id="save-cancel" class="btn">Cancel</button>
+        <button id="save-ok" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="step-modal" class="modal hidden">
+    <div class="modal-content step-modal-content">
+      <h2 id="step-modal-title">Add step</h2>
+      <div class="form-group" id="step-type-group">
+        <label>Type</label>
+        <select id="new-step-type">
+          <option value="ai_image">Image generation</option>
+          <option value="ai_text">Text / LLM</option>
+          <option value="ai_video">Video generation</option>
+          <option value="custom">Save outputs</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Name</label>
+        <input id="new-step-name" type="text" placeholder="Step name">
+      </div>
+      <div class="form-group">
+        <label>Output key</label>
+        <input id="new-step-output-key" type="text" placeholder="output_key">
+      </div>
+      <div class="form-group" id="new-step-model-group">
+        <label>Model</label>
+        <select id="new-step-model"></select>
+      </div>
+      <div class="form-group hidden" id="new-step-from-key-group">
+        <label>From key (previous step output)</label>
+        <input id="new-step-from-key" type="text" placeholder="generated_image">
+      </div>
+      <div class="form-group" id="new-step-prompt-group">
+        <label>Prompt</label>
+        <textarea id="new-step-prompt" rows="3" placeholder="Describe the image..."></textarea>
+      </div>
+      <div class="form-group hidden" id="new-step-llm-model-group">
+        <label>Sub-model (e.g. google/gemini-flash-1.5)</label>
+        <input id="new-step-llm-model" type="text" placeholder="google/gemini-flash-1.5">
+      </div>
+      <div class="form-group hidden" id="new-step-image-params-group">
+        <label>Image parameters</label>
+        <div class="params-grid">
+          <div class="form-group">
+            <label>Num images</label>
+            <input id="new-step-num-images" type="number" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label>Seed</label>
+            <input id="new-step-seed" type="number" placeholder="random">
+          </div>
+          <div class="form-group">
+            <label>Aspect ratio</label>
+            <select id="new-step-aspect-ratio">
+              <option value="auto">auto</option>
+              <option value="21:9">21:9</option>
+              <option value="16:9">16:9</option>
+              <option value="3:2">3:2</option>
+              <option value="4:3">4:3</option>
+              <option value="5:4">5:4</option>
+              <option value="1:1">1:1</option>
+              <option value="4:5">4:5</option>
+              <option value="3:4">3:4</option>
+              <option value="2:3">2:3</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Resolution</label>
+            <select id="new-step-resolution">
+              <option value="0.5K">0.5K</option>
+              <option value="1K" selected>1K</option>
+              <option value="2K">2K</option>
+              <option value="4K">4K</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Output format</label>
+            <select id="new-step-output-format">
+              <option value="jpeg">jpeg</option>
+              <option value="png" selected>png</option>
+              <option value="webp">webp</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Safety tolerance (1–6)</label>
+            <select id="new-step-safety-tolerance">
+              <option value="1">1 (strict)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6 (permissive)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group hidden" id="new-step-video-image-url-group">
+        <label>Image URL (for image-to-video)</label>
+        <input id="new-step-video-image-url" type="text" placeholder="Leave empty for text-to-video">
+      </div>
+      <div class="modal-actions">
+        <button id="step-modal-cancel" class="btn">Cancel</button>
+        <button id="step-modal-ok" class="btn btn-primary">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

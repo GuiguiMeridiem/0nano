@@ -1,0 +1,329 @@
+:root {
+  --bg: #0a0a0a;
+  --bg-panel: #111;
+  --bg-hover: #1a1a1a;
+  --border: #222;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --accent: #444;
+  --primary: #333;
+  --primary-hover: #555;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+header {
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+main section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.procedure-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.load-dropdown {
+  position: relative;
+}
+
+.load-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  min-width: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.load-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.load-menu button:hover {
+  background: var(--bg-hover);
+}
+
+.load-menu .load-empty {
+  padding: 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.params-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.params-grid .form-group {
+  margin-bottom: 0;
+}
+
+.step-card .step-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.step-card .edit-step {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.panel-header h2 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.step-card {
+  padding: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.step-card .step-info {
+  flex: 1;
+}
+
+.step-card .step-name {
+  font-weight: 500;
+}
+
+.step-card .step-meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.step-card button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.step-card button:hover {
+  color: var(--text);
+}
+
+.cost-display {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.cost-display .total {
+  margin-top: 0.5rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 0.5rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-run {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.progress-panel .progress-steps {
+  margin-bottom: 1rem;
+}
+
+.progress-step {
+  padding: 0.5rem;
+  margin-bottom: 0.25rem;
+  background: var(--bg);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.progress-step.running {
+  border-left: 3px solid var(--text-dim);
+}
+
+.progress-step.done {
+  color: var(--text-dim);
+}
+
+.progress-log {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.outputs-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.outputs-gallery img,
+.outputs-gallery video {
+  max-width: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+  min-width: 320px;
+}
+
+.step-modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  justify-content: flex-end;
+}
+
+.form-group {
+  margin-bottom: 0.75rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}

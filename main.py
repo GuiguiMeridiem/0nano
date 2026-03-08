@@ -5,8 +5,13 @@ This is the main file you edit and run.
 Define your workflow steps below, then run:
 
     python main.py
+    python main.py --workflow '{"steps": [...]}'
+    python main.py --workflow workflow.json
+    python main.py --workflow workflow.json --confirmed
 """
 
+import argparse
+import json
 import urllib.request
 from pathlib import Path
 
@@ -100,15 +105,37 @@ workflow = WorkflowEngine(steps=[
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────
-# To run a saved workflow instead:
-#   workflow = WorkflowEngine.load("my_name")
 if __name__ == "__main__":
-    result = workflow.run()
+    parser = argparse.ArgumentParser(description="0nano workflow runner")
+    parser.add_argument(
+        "--workflow",
+        "-w",
+        help="Workflow as JSON string or path to .json file",
+    )
+    parser.add_argument(
+        "--confirmed",
+        "-c",
+        action="store_true",
+        help="Skip cost confirmation (use when GUI/API already confirmed)",
+    )
+    args = parser.parse_args()
+
+    if args.workflow:
+        w = args.workflow.strip()
+        if w.startswith("{") or w.startswith("["):
+            data = json.loads(w)
+        else:
+            data = json.loads(Path(w).read_text())
+        run_workflow = WorkflowEngine.from_dict(data)
+    else:
+        run_workflow = workflow
+
+    result = run_workflow.run(skip_confirm=args.confirmed)
 
     paths = result.get("saved_paths", [])
     if paths:
         print("Images saved:")
         for p in paths:
             print(f"  {p}")
-    else:
+    elif not args.workflow:
         print("No images were saved.")
