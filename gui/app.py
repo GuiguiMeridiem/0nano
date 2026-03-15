@@ -34,6 +34,7 @@ executor = ThreadPoolExecutor(max_workers=2)
 class WorkflowRequest(BaseModel):
     workflow: dict
     confirmed: bool = False
+    procedure_name: str | None = None
 
 
 class SaveWorkflowRequest(BaseModel):
@@ -82,13 +83,46 @@ async def estimate_cost(req: WorkflowRequest):
     }
 
 
-def _run_workflow(workflow_dict: dict, event_queue: Queue):
-    """Run workflow in thread, push events to queue."""
+def _save_outputs_from_event(output: dict, procedure_name: str, outputs_dir: Path, counter: list) -> None:
+    """Download images/video from step output and save to outputs/{procedure_name}_{n}.ext."""
+    import urllib.request
+    base = procedure_name or "output"
+    base = "".join(c if c.isalnum() or c in "_-" else "_" for c in base).strip("_") or "output"
+    for img in output.get("images") or []:
+        url = img.get("url") if isinstance(img, dict) else None
+        if not url:
+            continue
+        counter[0] += 1
+        ext = ".png"
+        if isinstance(img, dict) and img.get("content_type"):
+            ct = img["content_type"]
+            if "jpeg" in ct or "jpg" in ct:
+                ext = ".jpg"
+            elif "webp" in ct:
+                ext = ".webp"
+        dest = outputs_dir / f"{base}_{counter[0]}{ext}"
+        urllib.request.urlretrieve(url, dest)
+    video = output.get("video")
+    if video:
+        url = video.get("url") if isinstance(video, dict) else video
+        if url:
+            counter[0] += 1
+            dest = outputs_dir / f"{base}_{counter[0]}.mp4"
+            urllib.request.urlretrieve(url, dest)
+
+
+def _run_workflow(workflow_dict: dict, event_queue: Queue, procedure_name: str | None = None):
+    """Run workflow in thread, push events to queue. Saves outputs to outputs/ with procedure_name_N."""
+    outputs_dir = PROJECT_ROOT / "outputs"
+    outputs_dir.mkdir(exist_ok=True)
+    counter = [0]
     try:
         engine = WorkflowEngine.from_dict(workflow_dict)
 
         def on_progress(evt: dict):
             event_queue.put(evt)
+            if evt.get("type") == "step_end" and procedure_name and evt.get("output"):
+                _save_outputs_from_event(evt["output"], procedure_name, outputs_dir, counter)
 
         engine.run(skip_confirm=True, progress_callback=on_progress)
     except Exception as e:
@@ -109,10 +143,11 @@ async def run_workflow(req: WorkflowRequest):
         raise HTTPException(status_code=400, detail="confirmed must be true")
 
     event_queue = Queue()
+    proc_name = req.procedure_name or (req.workflow.get("steps", [{}])[0].get("name", "output") if req.workflow.get("steps") else "output")
 
     async def event_stream():
         loop = asyncio.get_event_loop()
-        loop.run_in_executor(executor, _run_workflow, req.workflow, event_queue)
+        loop.run_in_executor(executor, _run_workflow, req.workflow, event_queue, proc_name)
         while True:
             evt = await loop.run_in_executor(None, _queue_get, event_queue)
             if evt is None:

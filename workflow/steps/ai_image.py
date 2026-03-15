@@ -46,7 +46,13 @@ class AIImageStep(BaseStep):
         return pricing.estimate(self.model_id, params)
 
     def run(self, context: dict) -> dict:
-        params = self.params_fn(context)
+        params = dict(self.params_fn(context) or {})
+        if not params.get("prompt"):
+            params["prompt"] = "A beautiful image"
+        if self.model_id == "fal-ai/nano-banana" and "aspect_ratio" in params and params["aspect_ratio"] == "auto":
+            params["aspect_ratio"] = "1:1"
+        if self.model_id == "fal-ai/nano-banana":
+            params.pop("resolution", None)
         print(f"  Model  : {self.model_id}")
         print(f"  Prompt : {str(params.get('prompt', ''))[:80]}...")
         if self.use_queue:

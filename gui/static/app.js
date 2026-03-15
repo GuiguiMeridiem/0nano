@@ -73,6 +73,35 @@ function removeStep(index) {
   updateRunButton();
 }
 
+function bindOutputClicks() {
+  el("outputs-gallery")?.querySelectorAll(".output-thumb").forEach((el) => {
+    el.onclick = () => showLightbox(el.dataset.url, el.dataset.type);
+  });
+}
+
+function showLightbox(url, type) {
+  const lb = document.getElementById("lightbox");
+  const img = document.getElementById("lightbox-img");
+  const video = document.getElementById("lightbox-video");
+  img.classList.add("hidden");
+  video.classList.add("hidden");
+  if (type === "video") {
+    video.src = url;
+    video.classList.remove("hidden");
+  } else {
+    img.src = url;
+    img.classList.remove("hidden");
+  }
+  lb.classList.remove("hidden");
+}
+
+function hideLightbox() {
+  document.getElementById("lightbox").classList.add("hidden");
+  const video = document.getElementById("lightbox-video");
+  video.pause();
+  video.src = "";
+}
+
 function updateRunButton() {
   const btn = el("run-btn");
   btn.disabled = state.steps.length === 0 || state.running;
@@ -270,7 +299,11 @@ async function runWorkflow() {
     const res = await fetch(API.run, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workflow: buildWorkflow(), confirmed: true }),
+      body: JSON.stringify({
+        workflow: buildWorkflow(),
+        confirmed: true,
+        procedure_name: state.steps[0]?.name?.replace(/\s+/g, "_").toLowerCase() || "output",
+      }),
     });
     if (!res.ok) {
       log("Error: " + res.statusText);
@@ -331,12 +364,13 @@ async function runWorkflow() {
     if (state.outputMedia && state.outputMedia.length > 0) {
       el("outputs-panel").classList.remove("hidden");
       const gallery = el("outputs-gallery");
-      gallery.innerHTML = state.outputMedia.map(m => {
+      gallery.innerHTML = state.outputMedia.map((m, i) => {
         if (m.type === "video") {
-          return `<video src="${m.url}" controls></video>`;
+          return `<video src="${m.url}" controls class="output-thumb" data-url="${m.url}" data-type="video"></video>`;
         }
-        return `<img src="${m.url}" alt="output">`;
+        return `<img src="${m.url}" alt="output" class="output-thumb" data-url="${m.url}" data-type="image">`;
       }).join("");
+      bindOutputClicks();
     } else {
       const outRes = await fetch(API.outputs);
       const outData = await outRes.json();
@@ -346,10 +380,11 @@ async function runWorkflow() {
         gallery.innerHTML = outData.files.map(f => {
           const ext = (f.name || "").toLowerCase();
           if (ext.match(/\.(mp4|webm|mov)$/)) {
-            return `<video src="${f.url}" controls></video>`;
+            return `<video src="${f.url}" controls class="output-thumb" data-url="${f.url}" data-type="video"></video>`;
           }
-          return `<img src="${f.url}" alt="${f.name}">`;
+          return `<img src="${f.url}" alt="${f.name}" class="output-thumb" data-url="${f.url}" data-type="image">`;
         }).join("");
+        bindOutputClicks();
       }
     }
   } catch (e) {
@@ -405,11 +440,14 @@ function getParamsFromStepModal(type) {
     const n = parseInt(el("new-step-num-images").value, 10);
     params.num_images = isNaN(n) || n < 1 ? 1 : n;
     const seedVal = el("new-step-seed").value.trim();
-    if (seedVal) params.seed = parseInt(seedVal, 10);
+    if (seedVal) {
+      const s = parseInt(seedVal, 10);
+      if (!isNaN(s)) params.seed = s;
+    }
     params.aspect_ratio = el("new-step-aspect-ratio").value || "auto";
     params.resolution = el("new-step-resolution").value || "1K";
     params.output_format = el("new-step-output-format").value || "png";
-    params.safety_tolerance = parseInt(el("new-step-safety-tolerance").value, 10) || 4;
+    params.safety_tolerance = String(el("new-step-safety-tolerance").value || "4");
   }
   if (type === "ai_video") {
     const url = el("new-step-video-image-url").value.trim();
@@ -525,6 +563,13 @@ function init() {
   fetchModels();
   refreshWorkflows();
   renderSteps();
+  document.getElementById("lightbox-close").onclick = hideLightbox;
+  document.getElementById("lightbox").onclick = (e) => {
+    if (e.target.id === "lightbox" || e.target.classList.contains("lightbox-content")) hideLightbox();
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideLightbox();
+  });
   el("add-step").onclick = () => showAddStepModal();
   el("save-btn").onclick = saveWorkflow;
   el("load-btn").onclick = toggleLoadMenu;

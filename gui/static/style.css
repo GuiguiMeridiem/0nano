@@ -12,6 +12,8 @@
 
 * {
   box-sizing: border-box;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 body {
@@ -263,6 +265,57 @@ main section {
   max-width: 100%;
   border-radius: 4px;
   border: 1px solid var(--border);
+}
+
+.output-thumb {
+  cursor: pointer;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  z-index: 201;
+}
+
+.lightbox-close:hover {
+  background: var(--bg-hover);
+}
+
+.lightbox-content {
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-media {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+}
+
+.lightbox-media.hidden {
+  display: none;
 }
 
 .modal {

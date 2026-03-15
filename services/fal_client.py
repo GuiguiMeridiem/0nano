@@ -32,6 +32,7 @@ def run_queue(
     Recommended for all AI models — doesn't require keeping a long connection open.
     """
     submit_url = f"{FAL_QUEUE_BASE_URL}/{model_id}"
+    print(f"  → Sending to fal: prompt={payload.get('prompt', '')[:60]}..., aspect_ratio={payload.get('aspect_ratio')}, resolution={payload.get('resolution')}")
     response = requests.post(submit_url, json=payload, headers=_headers(), timeout=30)
     response.raise_for_status()
     request_id = response.json()["request_id"]
@@ -61,5 +62,13 @@ def run_queue(
 
     result_url = f"{FAL_QUEUE_BASE_URL}/{model_id}/requests/{request_id}"
     result_resp = requests.get(result_url, headers=_headers(), timeout=30)
-    result_resp.raise_for_status()
+    if not result_resp.ok:
+        try:
+            err_body = result_resp.json()
+            detail = err_body.get("detail") or err_body.get("message") or str(err_body)
+        except Exception:
+            detail = result_resp.text or result_resp.reason
+        raise RuntimeError(
+            f"fal.ai request failed ({result_resp.status_code}): {detail}"
+        )
     return result_resp.json()

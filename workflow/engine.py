@@ -116,6 +116,13 @@ class WorkflowEngine:
 
             if stype == "ai_image":
                 params = dict(s.get("params", {}))
+                if not params.get("prompt"):
+                    params["prompt"] = "A beautiful image"
+                params.setdefault("num_images", 1)
+                params.setdefault("aspect_ratio", "auto")
+                params.setdefault("resolution", "1K")
+                params.setdefault("output_format", "png")
+                params.setdefault("safety_tolerance", "4")
                 step = AIImageStep(
                     name=name,
                     output_key=output_key,
@@ -317,9 +324,10 @@ class WorkflowEngine:
             if progress_callback:
                 out_summary = None
                 if isinstance(output, dict) and "images" in output:
-                    out_summary = {"images": [{"url": img.get("url")} for img in output["images"]]}
+                    out_summary = {"images": [{"url": img.get("url"), "content_type": img.get("content_type")} for img in output["images"]]}
                 elif isinstance(output, dict) and "video" in output:
-                    out_summary = {"video": output.get("video")}
+                    v = output.get("video")
+                    out_summary = {"video": v if isinstance(v, dict) else {"url": v}} if v else None
                 progress_callback({
                     "type": "step_end",
                     "step": i,
