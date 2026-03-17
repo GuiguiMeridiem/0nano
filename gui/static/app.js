@@ -14,6 +14,114 @@ let state = {
   threshold: 5,
   confirmed: false,
   running: false,
+  loadedProcedureName: null,
+};
+
+const VIDEO_MODEL_CAPS = {
+  "fal-ai/kling-video/v3/pro/image-to-video": {
+    durations: ["3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+    defaultDuration: "5",
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    defaultAspectRatio: "16:9",
+    resolutions: null,
+    defaultResolution: null,
+    supportsAudio: true,
+    defaultAudio: true,
+  },
+  "fal-ai/kling-video/v2.6/pro/image-to-video": {
+    durations: ["5", "10"],
+    defaultDuration: "5",
+    aspectRatios: null,
+    defaultAspectRatio: null,
+    resolutions: null,
+    defaultResolution: null,
+    supportsAudio: true,
+    defaultAudio: true,
+  },
+  "fal-ai/minimax-video/image-to-video": {
+    durations: null,
+    defaultDuration: null,
+    aspectRatios: null,
+    defaultAspectRatio: null,
+    resolutions: null,
+    defaultResolution: null,
+    supportsAudio: false,
+  },
+  "fal-ai/wan/v2.2-a14b/text-to-video": {
+    durations: ["4", "5", "6", "7", "8", "9", "10"],
+    defaultDuration: "5",
+    aspectRatios: ["16:9", "9:16", "1:1"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["480p", "580p", "720p"],
+    defaultResolution: "720p",
+    supportsAudio: false,
+  },
+  "fal-ai/bytedance/seedance/v1/pro/text-to-video": {
+    durations: ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    defaultDuration: "5",
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["480p", "720p", "1080p"],
+    defaultResolution: "1080p",
+    supportsAudio: false,
+  },
+  "fal-ai/bytedance/seedance/v1/pro/image-to-video": {
+    durations: ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+    defaultDuration: "5",
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["480p", "720p", "1080p"],
+    defaultResolution: "1080p",
+    supportsAudio: false,
+  },
+  "fal-ai/sora-2/image-to-video": {
+    durations: ["4", "8", "12", "16", "20"],
+    defaultDuration: "4",
+    aspectRatios: ["9:16", "16:9"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p"],
+    defaultResolution: "720p",
+    supportsAudio: false,
+  },
+  "fal-ai/sora-2/text-to-video": {
+    durations: ["4", "8", "12", "16", "20"],
+    defaultDuration: "4",
+    aspectRatios: ["9:16", "16:9"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p"],
+    defaultResolution: "720p",
+    supportsAudio: false,
+  },
+  "fal-ai/veo3.1/reference-to-video": {
+    durations: ["4", "6", "8"],
+    defaultDuration: "8",
+    aspectRatios: ["16:9", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p", "1080p", "4k"],
+    defaultResolution: "720p",
+    supportsAudio: true,
+    defaultAudio: true,
+  },
+  "fal-ai/veo3.1/image-to-video": {
+    durations: ["4", "6", "8"],
+    defaultDuration: "8",
+    aspectRatios: ["16:9", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p", "1080p", "4k"],
+    defaultResolution: "720p",
+    supportsAudio: true,
+    defaultAudio: true,
+  },
+  "fal-ai/veo3.1/fast/image-to-video": {
+    durations: ["4", "6", "8"],
+    defaultDuration: "8",
+    aspectRatios: ["16:9", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p", "1080p", "4k"],
+    defaultResolution: "720p",
+    supportsAudio: true,
+    defaultAudio: true,
+  },
 };
 
 function el(id) {
@@ -110,6 +218,16 @@ function updateRunButton() {
     : "Estimate cost first, then run.";
 }
 
+function updateSaveButton() {
+  const btn = el("save-btn");
+  btn.textContent = state.loadedProcedureName ? "Save" : "Save new procedure";
+}
+
+function updateCurrentProcedureLabel() {
+  const el = document.getElementById("current-procedure");
+  if (el) el.textContent = state.loadedProcedureName || "New procedure";
+}
+
 async function refreshWorkflows() {
   try {
     const res = await fetch(API.workflows);
@@ -117,21 +235,114 @@ async function refreshWorkflows() {
     const workflows = data.workflows || [];
     const menu = el("load-menu");
     menu.innerHTML = "";
+    const newBtn = document.createElement("button");
+    newBtn.textContent = "New procedure";
+    newBtn.className = "load-item load-new";
+    newBtn.onclick = () => {
+      newProcedure();
+      menu.classList.add("hidden");
+    };
+    menu.appendChild(newBtn);
     if (workflows.length === 0) {
-      menu.innerHTML = '<div class="load-empty">No saved procedures</div>';
+      const empty = document.createElement("div");
+      empty.className = "load-empty";
+      empty.textContent = "No saved procedures";
+      menu.appendChild(empty);
     } else {
       workflows.forEach((w) => {
-        const btn = document.createElement("button");
-        btn.textContent = w;
-        btn.onclick = () => {
+        const row = document.createElement("div");
+        row.className = "load-item-row";
+        const loadBtn = document.createElement("button");
+        loadBtn.textContent = w;
+        loadBtn.className = "load-item";
+        loadBtn.onclick = () => {
           loadWorkflow(w);
           menu.classList.add("hidden");
         };
-        menu.appendChild(btn);
+        const renameBtn = document.createElement("button");
+        renameBtn.textContent = "✎";
+        renameBtn.className = "load-rename";
+        renameBtn.title = "Rename procedure";
+        renameBtn.onclick = (e) => {
+          e.stopPropagation();
+          renameWorkflow(w);
+        };
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "×";
+        delBtn.className = "load-delete";
+        delBtn.title = "Delete procedure";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete procedure "${w}"?`)) deleteWorkflow(w);
+        };
+        row.appendChild(loadBtn);
+        row.appendChild(renameBtn);
+        row.appendChild(delBtn);
+        menu.appendChild(row);
       });
     }
   } catch (e) {
     console.error("Failed to load procedures:", e);
+  }
+}
+
+function newProcedure() {
+  state.steps = [];
+  state.loadedProcedureName = null;
+  state.costBreakdown = null;
+  state.confirmed = false;
+  renderSteps();
+  updateRunButton();
+  updateSaveButton();
+  updateCurrentProcedureLabel();
+  showCost("");
+}
+
+async function renameWorkflow(name) {
+  const newName = prompt("New name for procedure:", name);
+  if (!newName || newName.trim() === name) return;
+  try {
+    const res = await fetch(`${API.workflows}/${encodeURIComponent(name)}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_name: newName.trim() }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert("Rename failed: " + (err.detail || res.statusText));
+      return;
+    }
+    const data = await res.json();
+    if (state.loadedProcedureName === name) {
+      state.loadedProcedureName = data.renamed_to;
+      updateSaveButton();
+      updateCurrentProcedureLabel();
+    }
+    refreshWorkflows();
+  } catch (e) {
+    alert("Rename failed: " + e.message);
+  }
+}
+
+async function deleteWorkflow(name) {
+  try {
+    const res = await fetch(`${API.workflows}/${encodeURIComponent(name)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json();
+      alert("Delete failed: " + (err.detail || res.statusText));
+      return;
+    }
+    if (state.loadedProcedureName === name) {
+      state.loadedProcedureName = null;
+      state.steps = [];
+      renderSteps();
+      updateRunButton();
+      updateSaveButton();
+      updateCurrentProcedureLabel();
+    }
+    refreshWorkflows();
+  } catch (e) {
+    alert("Delete failed: " + e.message);
   }
 }
 
@@ -157,7 +368,31 @@ async function saveWorkflow() {
     showCost("Add at least one step before saving.");
     return;
   }
+  if (state.loadedProcedureName) {
+    try {
+      const res = await fetch(`${API.workflows}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: state.loadedProcedureName,
+          workflow: buildWorkflow(),
+          overwrite: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert("Save failed: " + (err.detail || res.statusText));
+        return;
+      }
+      el("run-hint").textContent = `Saved ${state.loadedProcedureName}`;
+      refreshWorkflows();
+    } catch (e) {
+      alert("Save failed: " + e.message);
+    }
+    return;
+  }
   const modal = el("save-modal");
+  el("save-modal-title").textContent = "Save new procedure";
   el("save-name").value = state.steps[0] ? (state.steps[0].name || "procedure").replace(/\s+/g, "_").toLowerCase() : "procedure";
   modal.classList.remove("hidden");
 
@@ -167,7 +402,7 @@ async function saveWorkflow() {
       const res = await fetch(`${API.workflows}/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, workflow: buildWorkflow() }),
+        body: JSON.stringify({ name, workflow: buildWorkflow(), overwrite: false }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -176,8 +411,10 @@ async function saveWorkflow() {
       }
       const data = await res.json();
       modal.classList.add("hidden");
-      const hint = el("run-hint");
-      hint.textContent = `Saved as ${data.saved_as}`;
+      state.loadedProcedureName = data.saved_as;
+      updateSaveButton();
+      updateCurrentProcedureLabel();
+      el("run-hint").textContent = `Saved as ${data.saved_as}`;
       refreshWorkflows();
     } catch (e) {
       alert("Save failed: " + e.message);
@@ -197,10 +434,13 @@ async function loadWorkflow(name) {
     }
     const data = await res.json();
     state.steps = data.steps || [];
+    state.loadedProcedureName = name;
     state.costBreakdown = null;
     state.confirmed = false;
     renderSteps();
     updateRunButton();
+    updateSaveButton();
+    updateCurrentProcedureLabel();
     showCost("");
   } catch (e) {
     alert("Load failed: " + e.message);
@@ -279,6 +519,8 @@ function showConfirmModal() {
 async function runWorkflow() {
   if (!state.confirmed || state.running) return;
   state.running = true;
+  let runCompleted = false;
+  let runErrored = false;
   el("run-btn").disabled = true;
   el("progress-panel").classList.remove("hidden");
   el("outputs-panel").classList.add("hidden");
@@ -349,13 +591,20 @@ async function runWorkflow() {
                 });
               }
               if (data.output.video) {
-                state.outputMedia.push({ type: "video", url: data.output.video });
+                const videoUrl = typeof data.output.video === "string"
+                  ? data.output.video
+                  : data.output.video.url;
+                if (videoUrl) {
+                  state.outputMedia.push({ type: "video", url: videoUrl });
+                }
               }
             }
           } else if (eventType === "complete") {
             log("Procedure complete.");
+            runCompleted = true;
           } else if (eventType === "error") {
             log("Error: " + (data.message || "Unknown"));
+            runErrored = true;
           }
         }
       }
@@ -371,7 +620,7 @@ async function runWorkflow() {
         return `<img src="${m.url}" alt="output" class="output-thumb" data-url="${m.url}" data-type="image">`;
       }).join("");
       bindOutputClicks();
-    } else {
+    } else if (runCompleted && !runErrored) {
       const outRes = await fetch(API.outputs);
       const outData = await outRes.json();
       if (outData.files && outData.files.length > 0) {
@@ -386,9 +635,14 @@ async function runWorkflow() {
         }).join("");
         bindOutputClicks();
       }
+    } else {
+      // Prevent displaying stale outputs from previous runs on failed executions.
+      el("outputs-panel").classList.add("hidden");
     }
   } catch (e) {
+    runErrored = true;
     log("Error: " + e.message);
+    el("outputs-panel").classList.add("hidden");
   }
   state.running = false;
   updateRunButton();
@@ -406,6 +660,11 @@ function resetStepModalFields() {
   el("new-step-resolution").value = "1K";
   el("new-step-output-format").value = "png";
   el("new-step-safety-tolerance").value = "4";
+  el("new-step-video-aspect-ratio").value = "16:9";
+  el("new-step-video-resolution").value = "720p";
+  el("new-step-video-duration").value = "5";
+  el("new-step-video-generate-audio").checked = true;
+  el("new-step-video-image-source").value = "";
   el("new-step-video-image-url").value = "";
 }
 
@@ -422,7 +681,26 @@ function populateStepModalFromStep(step) {
   el("new-step-resolution").value = params.resolution || "1K";
   el("new-step-output-format").value = params.output_format || "png";
   el("new-step-safety-tolerance").value = String(params.safety_tolerance ?? 4);
-  el("new-step-video-image-url").value = params.image_url || "";
+  el("new-step-video-aspect-ratio").value = String(params.aspect_ratio || "16:9");
+  el("new-step-video-resolution").value = String(params.resolution || "720p");
+  const durationVal = params.duration !== undefined ? String(params.duration).replace("s", "") : "5";
+  el("new-step-video-duration").value = durationVal;
+  el("new-step-video-generate-audio").checked = params.generate_audio !== false;
+  const imgSource = el("new-step-video-image-source");
+  const urlInput = el("new-step-video-image-url");
+  if (params.output_image) {
+    imgSource.value = params.output_image;
+    urlInput.value = "";
+    urlInput.classList.add("hidden");
+  } else if (params.image_url) {
+    imgSource.value = "url";
+    urlInput.value = params.image_url;
+    urlInput.classList.remove("hidden");
+  } else {
+    imgSource.value = "";
+    urlInput.value = "";
+    urlInput.classList.add("hidden");
+  }
 }
 
 function getParamsFromStepModal(type) {
@@ -450,13 +728,139 @@ function getParamsFromStepModal(type) {
     params.safety_tolerance = String(el("new-step-safety-tolerance").value || "4");
   }
   if (type === "ai_video") {
-    const url = el("new-step-video-image-url").value.trim();
-    if (url) params.image_url = url;
+    const modelId = el("new-step-model").value;
+    const caps = getVideoModelCaps(modelId);
+    const ar = el("new-step-video-aspect-ratio").value;
+    const res = el("new-step-video-resolution").value;
+    const duration = el("new-step-video-duration").value;
+    if (caps.aspectRatios && ar) params.aspect_ratio = ar;
+    if (caps.resolutions && res) params.resolution = res;
+    const normalizedDuration = normalizeVideoDurationForModel(modelId, duration);
+    if (caps.durations && normalizedDuration !== null) {
+      if (modelId === "fal-ai/wan/v2.2-a14b/text-to-video") {
+        const sec = parseInt(String(normalizedDuration), 10);
+        if (!isNaN(sec)) {
+          params.frames_per_second = 16;
+          params.num_frames = sec * 16 + 1;
+        }
+      } else {
+        params.duration = normalizedDuration;
+      }
+    }
+    if (caps.supportsAudio) {
+      params.generate_audio = el("new-step-video-generate-audio").checked;
+    }
+    const source = el("new-step-video-image-source").value;
+    if (source === "url") {
+      const url = el("new-step-video-image-url").value.trim();
+      if (url) params.image_url = url;
+    } else if (source) {
+      params.output_image = source;
+    }
   }
   return params;
 }
 
-function toggleStepModalVisibility(type, isEdit) {
+function getModelsForStepType(type) {
+  if (type === "ai_image") return state.models.filter(m => m.type === "image");
+  if (type === "ai_text") return state.models.filter(m => m.type === "text");
+  if (type === "ai_video") return state.models.filter(m => m.type === "video");
+  return [];
+}
+
+function getVideoModelCaps(modelId) {
+  return VIDEO_MODEL_CAPS[modelId] || {
+    durations: ["4", "5", "6", "8", "10"],
+    defaultDuration: "5",
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["480p", "720p", "1080p"],
+    defaultResolution: "720p",
+    supportsAudio: false,
+    defaultAudio: false,
+  };
+}
+
+function normalizeVideoDurationForModel(modelId, duration) {
+  if (!duration) return null;
+  const seconds = parseInt(duration, 10);
+  if (isNaN(seconds)) return null;
+  if (modelId && modelId.startsWith("fal-ai/veo3.1/")) return `${seconds}s`;
+  if (modelId && modelId.startsWith("fal-ai/sora-2/")) return seconds;
+  return String(seconds);
+}
+
+function repopulateSelect(selectEl, values, preferredValue) {
+  if (!values || values.length === 0) return;
+  const prev = preferredValue || selectEl.value;
+  selectEl.innerHTML = "";
+  values.forEach((v) => {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    selectEl.appendChild(opt);
+  });
+  if (values.includes(prev)) {
+    selectEl.value = prev;
+  } else if (values.length > 0) {
+    selectEl.value = values[0];
+  }
+}
+
+function populateVideoControls() {
+  const modelId = el("new-step-model").value;
+  const caps = getVideoModelCaps(modelId);
+  const aspectGroup = el("video-aspect-ratio-group");
+  const resolutionGroup = el("video-resolution-group");
+  const durationGroup = el("video-duration-group");
+  const audioGroup = el("video-audio-group");
+  aspectGroup.classList.toggle("hidden", !caps.aspectRatios);
+  resolutionGroup.classList.toggle("hidden", !caps.resolutions);
+  durationGroup.classList.toggle("hidden", !caps.durations);
+  audioGroup.classList.toggle("hidden", !caps.supportsAudio);
+  repopulateSelect(el("new-step-video-aspect-ratio"), caps.aspectRatios, caps.defaultAspectRatio);
+  repopulateSelect(el("new-step-video-resolution"), caps.resolutions, caps.defaultResolution);
+  repopulateSelect(el("new-step-video-duration"), caps.durations, caps.defaultDuration);
+  el("new-step-video-generate-audio").checked = !!caps.defaultAudio;
+}
+
+async function populateVideoImageSelect() {
+  const select = el("new-step-video-image-source");
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">None (text-to-video)</option>';
+  try {
+    const res = await fetch(API.outputs);
+    const data = await res.json();
+    const imageExt = /\.(png|jpe?g|webp|gif)$/i;
+    const images = (data.files || []).filter(f => imageExt.test(f.name || ""));
+    images.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f.name;
+      opt.textContent = f.name;
+      select.appendChild(opt);
+    });
+    select.appendChild(new Option("Custom URL...", "url"));
+    if (currentVal && [...select.options].some(o => o.value === currentVal)) {
+      select.value = currentVal;
+    }
+  } catch (_) {}
+}
+
+function populateModelSelect(type, currentModelId) {
+  const modelSelect = el("new-step-model");
+  const models = getModelsForStepType(type);
+  modelSelect.innerHTML = "";
+  models.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.id;
+    modelSelect.appendChild(opt);
+  });
+  const hasCurrent = models.some(m => m.id === currentModelId);
+  modelSelect.value = hasCurrent ? currentModelId : (models[0]?.id || "");
+}
+
+function toggleStepModalVisibility(type, isEdit, preserveModelId) {
   const typeSelect = el("new-step-type");
   typeSelect.disabled = !!isEdit;
   const t = type || typeSelect.value;
@@ -465,7 +869,30 @@ function toggleStepModalVisibility(type, isEdit) {
   el("new-step-prompt-group").classList.toggle("hidden", t === "custom");
   el("new-step-llm-model-group").classList.toggle("hidden", t !== "ai_text");
   el("new-step-image-params-group").classList.toggle("hidden", t !== "ai_image");
-  el("new-step-video-image-url-group").classList.toggle("hidden", t !== "ai_video");
+  el("new-step-video-params-group").classList.toggle("hidden", t !== "ai_video");
+  el("new-step-video-image-group").classList.toggle("hidden", t !== "ai_video");
+  if (t !== "custom") {
+    populateModelSelect(t, preserveModelId ?? el("new-step-model").value);
+  }
+  const promptInput = el("new-step-prompt");
+  promptInput.placeholder = t === "ai_video" ? "Describe the video..." : t === "ai_image" ? "Describe the image..." : "Enter prompt...";
+  if (t === "ai_video") {
+    populateVideoControls();
+    populateVideoImageSelect();
+    el("new-step-model").onchange = () => {
+      populateVideoControls();
+    };
+    const imgSource = el("new-step-video-image-source");
+    const urlInput = el("new-step-video-image-url");
+    const syncUrlVisibility = () => {
+      urlInput.classList.toggle("hidden", imgSource.value !== "url");
+    };
+    imgSource.onchange = syncUrlVisibility;
+    syncUrlVisibility();
+  } else {
+    el("new-step-model").onchange = null;
+    el("new-step-video-image-url").classList.add("hidden");
+  }
   if (t === "custom" && state.steps.length > 0 && !isEdit) {
     const last = state.steps[state.steps.length - 1];
     el("new-step-from-key").value = last.output_key || "generated_image";
@@ -478,15 +905,6 @@ function showAddStepModal() {
   el("step-modal-ok").textContent = "Add";
   resetStepModalFields();
   const typeSelect = el("new-step-type");
-  const modelSelect = el("new-step-model");
-  modelSelect.innerHTML = "";
-  [...state.models.filter(m => m.type === "image"), ...state.models.filter(m => m.type === "text"), ...state.models.filter(m => m.type === "video")].forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = m.id;
-    modelSelect.appendChild(opt);
-  });
-  modelSelect.value = state.models[0]?.id || "";
   toggleStepModalVisibility(null, false);
   typeSelect.onchange = () => toggleStepModalVisibility(null, false);
   modal.classList.remove("hidden");
@@ -502,7 +920,8 @@ function showAddStepModal() {
       params: getParamsFromStepModal(type),
     };
     if (type !== "custom") {
-      step.model_id = modelSelect.value || state.models[0]?.id;
+      const models = getModelsForStepType(type);
+      step.model_id = el("new-step-model").value || models[0]?.id;
     } else {
       step.fn = "save_outputs";
     }
@@ -522,16 +941,7 @@ function showEditStepModal(index) {
   populateStepModalFromStep(step);
   const typeSelect = el("new-step-type");
   typeSelect.value = step.type || "ai_image";
-  const modelSelect = el("new-step-model");
-  modelSelect.innerHTML = "";
-  [...state.models.filter(m => m.type === "image"), ...state.models.filter(m => m.type === "text"), ...state.models.filter(m => m.type === "video")].forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = m.id;
-    modelSelect.appendChild(opt);
-  });
-  modelSelect.value = step.model_id || state.models[0]?.id || "";
-  toggleStepModalVisibility(step.type, true);
+  toggleStepModalVisibility(step.type, true, step.model_id);
   modal.classList.remove("hidden");
 
   el("step-modal-ok").onclick = () => {
@@ -545,7 +955,8 @@ function showEditStepModal(index) {
       params: getParamsFromStepModal(type),
     };
     if (type !== "custom") {
-      updated.model_id = modelSelect.value || state.models[0]?.id;
+      const models = getModelsForStepType(type);
+      updated.model_id = el("new-step-model").value || models[0]?.id;
     } else {
       updated.fn = "save_outputs";
     }
@@ -563,6 +974,8 @@ function init() {
   fetchModels();
   refreshWorkflows();
   renderSteps();
+  updateSaveButton();
+  updateCurrentProcedureLabel();
   document.getElementById("lightbox-close").onclick = hideLightbox;
   document.getElementById("lightbox").onclick = (e) => {
     if (e.target.id === "lightbox" || e.target.classList.contains("lightbox-content")) hideLightbox();

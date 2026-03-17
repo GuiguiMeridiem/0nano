@@ -16,7 +16,10 @@
     <main>
       <section class="procedure-panel">
         <div class="panel-header">
-          <h2>Procedure</h2>
+          <div class="procedure-title-row">
+            <h2>Procedure</h2>
+            <span id="current-procedure" class="current-procedure">New procedure</span>
+          </div>
           <div class="procedure-actions">
             <button id="save-btn" class="btn">Save</button>
             <div class="load-dropdown">
@@ -75,7 +78,7 @@
 
   <div id="save-modal" class="modal hidden">
     <div class="modal-content">
-      <h2>Save procedure</h2>
+      <h2 id="save-modal-title">Save new procedure</h2>
       <div class="form-group">
         <label>Name</label>
         <input id="save-name" type="text" placeholder="my_procedure">
@@ -180,9 +183,54 @@
           </div>
         </div>
       </div>
-      <div class="form-group hidden" id="new-step-video-image-url-group">
-        <label>Image URL (for image-to-video)</label>
-        <input id="new-step-video-image-url" type="text" placeholder="Leave empty for text-to-video">
+      <div class="form-group hidden" id="new-step-video-params-group">
+        <label>Video parameters</label>
+        <div class="params-grid">
+          <div class="form-group" id="video-aspect-ratio-group">
+            <label>Aspect ratio</label>
+            <select id="new-step-video-aspect-ratio">
+              <option value="auto">auto</option>
+              <option value="21:9">21:9</option>
+              <option value="16:9" selected>16:9</option>
+              <option value="4:3">4:3</option>
+              <option value="1:1">1:1</option>
+              <option value="3:4">3:4</option>
+              <option value="9:16">9:16</option>
+            </select>
+          </div>
+          <div class="form-group" id="video-resolution-group">
+            <label>Resolution</label>
+            <select id="new-step-video-resolution">
+              <option value="auto">auto</option>
+              <option value="480p">480p</option>
+              <option value="720p" selected>720p</option>
+              <option value="1080p">1080p</option>
+            </select>
+          </div>
+          <div class="form-group" id="video-duration-group">
+            <label>Duration (seconds)</label>
+            <select id="new-step-video-duration">
+              <option value="4">4</option>
+              <option value="5" selected>5</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+          <div class="form-group" id="video-audio-group">
+            <label>
+              <input id="new-step-video-generate-audio" type="checkbox" checked>
+              Generate audio
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="form-group hidden" id="new-step-video-image-group">
+        <label>Source image (for image-to-video)</label>
+        <select id="new-step-video-image-source">
+          <option value="">None (text-to-video)</option>
+        </select>
+        <input id="new-step-video-image-url" type="text" class="hidden mt-1" placeholder="Paste image URL..." style="width:100%">
       </div>
       <div class="modal-actions">
         <button id="step-modal-cancel" class="btn">Cancel</button>

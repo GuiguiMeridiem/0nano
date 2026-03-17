@@ -127,7 +127,9 @@ class WorkflowEngine:
                     name=name,
                     output_key=output_key,
                     model_id=s.get("model_id", ""),
-                    params_fn=lambda p=params: p,
+                    # Important: ignore runtime context and return captured params.
+                    # Using lambda p=params would get overridden by the passed context arg.
+                    params_fn=lambda _ctx, p=params: p,
                 )
             elif stype == "ai_text":
                 params = dict(s.get("params", {}))
@@ -135,7 +137,7 @@ class WorkflowEngine:
                     name=name,
                     output_key=output_key,
                     model_id=s.get("model_id", ""),
-                    params_fn=lambda p=params: p,
+                    params_fn=lambda _ctx, p=params: p,
                 )
             elif stype == "ai_video":
                 params = dict(s.get("params", {}))
@@ -143,7 +145,7 @@ class WorkflowEngine:
                     name=name,
                     output_key=output_key,
                     model_id=s.get("model_id", ""),
-                    params_fn=lambda p=params: p,
+                    params_fn=lambda _ctx, p=params: p,
                 )
             elif stype == "custom":
                 fn_name = s.get("fn", "")

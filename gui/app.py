@@ -40,6 +40,7 @@ class WorkflowRequest(BaseModel):
 class SaveWorkflowRequest(BaseModel):
     name: str
     workflow: dict
+    overwrite: bool = False
 
 
 static_dir = PROJECT_ROOT / "gui" / "static"
@@ -83,6 +84,22 @@ async def estimate_cost(req: WorkflowRequest):
     }
 
 
+def _next_output_index(outputs_dir: Path, base: str) -> int:
+    """Return the next available index for {base}_N.* so we never overwrite existing files."""
+    if not outputs_dir.exists():
+        return 1
+    max_n = 0
+    prefix = f"{base}_"
+    for p in outputs_dir.iterdir():
+        if not p.is_file() or not p.name.startswith(prefix):
+            continue
+        stem = p.stem
+        suffix = stem[len(prefix):]
+        if suffix.isdigit():
+            max_n = max(max_n, int(suffix))
+    return max_n + 1
+
+
 def _save_outputs_from_event(output: dict, procedure_name: str, outputs_dir: Path, counter: list) -> None:
     """Download images/video from step output and save to outputs/{procedure_name}_{n}.ext."""
     import urllib.request
@@ -115,7 +132,9 @@ def _run_workflow(workflow_dict: dict, event_queue: Queue, procedure_name: str |
     """Run workflow in thread, push events to queue. Saves outputs to outputs/ with procedure_name_N."""
     outputs_dir = PROJECT_ROOT / "outputs"
     outputs_dir.mkdir(exist_ok=True)
-    counter = [0]
+    base = procedure_name or "output"
+    base = "".join(c if c.isalnum() or c in "_-" else "_" for c in base).strip("_") or "output"
+    counter = [_next_output_index(outputs_dir, base) - 1]
     try:
         engine = WorkflowEngine.from_dict(workflow_dict)
 
@@ -199,10 +218,14 @@ async def get_workflow(name: str):
 
 @app.post("/api/workflows/save")
 async def save_workflow(req: SaveWorkflowRequest):
-    """Save workflow as JSON to saved_workflows/<name>.json. Appends _2, _3 if name exists."""
+    """Save workflow as JSON. If overwrite=True and file exists, update in place. Else create new (append _2, _3 if name exists)."""
     SAVED_WORKFLOWS_DIR.mkdir(exist_ok=True)
     name = req.name.strip() or "workflow"
     name = "".join(c if c.isalnum() or c in "_-" else "_" for c in name).strip("_") or "workflow"
+    json_path = SAVED_WORKFLOWS_DIR / f"{name}.json"
+    if req.overwrite and json_path.exists():
+        json_path.write_text(json.dumps(req.workflow, indent=2))
+        return {"saved_as": name, "path": str(json_path), "updated": True}
     candidate = name
     counter = 2
     while (SAVED_WORKFLOWS_DIR / f"{candidate}.json").exists() or (SAVED_WORKFLOWS_DIR / f"{candidate}.py").exists():
@@ -210,7 +233,36 @@ async def save_workflow(req: SaveWorkflowRequest):
         counter += 1
     dest = SAVED_WORKFLOWS_DIR / f"{candidate}.json"
     dest.write_text(json.dumps(req.workflow, indent=2))
-    return {"saved_as": candidate, "path": str(dest)}
+    return {"saved_as": candidate, "path": str(dest), "updated": False}
+
+
+@app.delete("/api/workflows/{name}")
+async def delete_workflow(name: str):
+    """Delete a saved workflow. Only .json files can be deleted from GUI."""
+    json_path = SAVED_WORKFLOWS_DIR / f"{name}.json"
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail=f"Procedure '{name}' not found")
+    json_path.unlink()
+    return {"deleted": name}
+
+
+class RenameWorkflowRequest(BaseModel):
+    new_name: str
+
+
+@app.post("/api/workflows/{name}/rename")
+async def rename_workflow(name: str, req: RenameWorkflowRequest):
+    """Rename a saved procedure. Only .json files. Returns new name."""
+    json_path = SAVED_WORKFLOWS_DIR / f"{name}.json"
+    if not json_path.exists():
+        raise HTTPException(status_code=404, detail=f"Procedure '{name}' not found")
+    new_name = req.new_name.strip() or "workflow"
+    new_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in new_name).strip("_") or "workflow"
+    new_path = SAVED_WORKFLOWS_DIR / f"{new_name}.json"
+    if new_path.exists() and new_path.resolve() != json_path.resolve():
+        raise HTTPException(status_code=409, detail=f"Procedure '{new_name}' already exists")
+    json_path.rename(new_path)
+    return {"renamed_to": new_name}
 
 
 @app.get("/api/outputs")

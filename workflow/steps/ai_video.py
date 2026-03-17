@@ -1,7 +1,12 @@
+import base64
+from pathlib import Path
 from typing import Callable
+
 from .base import BaseStep
 from services.fal_client import run_queue
 import pricing.registry as pricing
+
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent.parent / "outputs"
 
 
 class AIVideoStep(BaseStep):
@@ -44,6 +49,14 @@ class AIVideoStep(BaseStep):
         return pricing.estimate(self.model_id, params)
 
     def run(self, context: dict) -> dict:
-        params = self.params_fn(context)
+        params = dict(self.params_fn(context))
+        output_image = params.pop("output_image", None)
+        if output_image:
+            path = OUTPUTS_DIR / output_image
+            if path.exists():
+                b64 = base64.b64encode(path.read_bytes()).decode()
+                ext = path.suffix.lower()
+                mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}.get(ext.lstrip("."), "image/png")
+                params["image_url"] = f"data:{mime};base64,{b64}"
         print(f"  Model: {self.model_id}")
         return run_queue(self.model_id, params, timeout=self.timeout)
