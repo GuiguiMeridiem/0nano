@@ -4,64 +4,207 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>0nano</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="app">
-    <header>
-      <h1>0nano</h1>
-      <span class="subtitle">Hyper-realistic AI media procedures</span>
+    <header class="app-top">
+      <div class="app-top-brand">
+        <h1>0nano</h1>
+        <span class="subtitle">Short-form video projects</span>
+      </div>
+      <div class="app-top-project">
+        <div class="app-top-actions-inline">
+          <div class="project-picker" id="project-picker">
+            <button
+              type="button"
+              id="project-picker-trigger"
+              class="btn project-picker-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Choose project"
+            >
+              <span id="current-project" class="current-project">No project selected</span>
+              <span class="project-picker-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div id="project-dropdown" class="project-dropdown hidden" aria-label="Projects">
+              <div id="project-dropdown-list" class="project-dropdown-list"></div>
+              <button type="button" id="project-create-option" class="project-dropdown-create">+ Create new project</button>
+            </div>
+          </div>
+          <button type="button" id="rename-project-btn" class="btn">Rename</button>
+        </div>
+      </div>
     </header>
+    <p id="project-hint" class="header-hint">Create or load a project to unlock the pipeline.</p>
 
     <main>
-      <section class="procedure-panel">
-        <div class="panel-header">
-          <div class="procedure-title-row">
-            <h2>Procedure</h2>
-            <span id="current-procedure" class="current-procedure">New procedure</span>
+      <section class="cockpit-view">
+        <div class="cockpit-top-row">
+          <div class="workspace-switch">
+            <button type="button" id="open-image-workspace" class="btn btn-workspace">1. Image workspace</button>
+            <button type="button" id="open-video-workspace" class="btn btn-workspace">2. Video workspace</button>
           </div>
-          <div class="procedure-actions">
-            <button id="save-btn" class="btn">Save</button>
-            <div class="load-dropdown">
-              <button id="load-btn" class="btn" aria-label="Load saved procedure">Load</button>
-              <div id="load-menu" class="load-menu hidden"></div>
+        </div>
+
+        <div class="cockpit-view-grid">
+        <div class="panel cockpit-panel">
+          <section id="image-workspace">
+            <div class="panel-header">
+              <h2>
+                <img class="title-icon-svg" src="/static/icons/image.svg" alt="" aria-hidden="true">
+                Create image of person, product or context for the video
+              </h2>
             </div>
-            <button id="add-step" class="btn btn-primary">+ Add step</button>
+            <div class="params-grid">
+              <div class="form-group">
+                <label>Model</label>
+                <select id="step1-model" aria-label="Step 1 model"></select>
+                <div id="step1-model-full" class="model-fullname"></div>
+              </div>
+              <div class="form-group">
+                <label>Prompt</label>
+                <textarea id="step1-prompt" rows="3" maxlength="800" aria-label="Step 1 prompt" placeholder="Describe the base image..."></textarea>
+                <div class="field-meta"><span id="step1-prompt-count">0/800</span></div>
+              </div>
+              <div class="form-group">
+                <label>Num images</label>
+                <input id="step1-num-images" type="number" min="1" max="8" value="1" aria-label="Step 1 number of images">
+              </div>
+              <div class="form-group">
+                <label>Aspect ratio</label>
+                <select id="step1-aspect" aria-label="Step 1 aspect ratio">
+                  <option value="auto">auto</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Resolution</label>
+                <select id="step1-resolution" aria-label="Step 1 resolution">
+                  <option value="0.5K">0.5K</option>
+                  <option value="1K" selected>1K</option>
+                  <option value="2K">2K</option>
+                  <option value="4K">4K</option>
+                </select>
+              </div>
+            </div>
+            <div class="estimate-row">
+              <span class="estimate-label">Estimated API cost</span>
+              <span id="step1-cost" class="estimate-amount" aria-live="polite">—</span>
+            </div>
+            <div class="step-actions-row">
+              <button type="button" class="btn btn-primary btn-run step-run-btn" data-step="generate_base_image">Generate image</button>
+              <button id="import-image-btn" class="btn">Import image</button>
+              <input id="import-image-input" type="file" class="hidden" title="Import image file">
+            </div>
+            <div id="step1-error" class="input-error" role="alert"></div>
+          </section>
+
+          <section id="video-workspace" class="hidden">
+            <div class="panel-header">
+              <h2>
+                <img class="title-icon-svg" src="/static/icons/video.svg" alt="" aria-hidden="true">
+                Create video
+              </h2>
+            </div>
+            <div class="params-grid">
+              <div class="form-group">
+                <label>Model</label>
+                <select id="step3-model" aria-label="Video model"></select>
+                <div id="step3-model-full" class="model-fullname"></div>
+              </div>
+              <div class="form-group">
+                <label>Prompt</label>
+                <textarea id="step3-prompt" rows="3" maxlength="800" aria-label="Video prompt" placeholder="Describe the video..."></textarea>
+                <div class="field-meta"><span id="step3-prompt-count">0/800</span></div>
+              </div>
+              <div class="form-group">
+                <label>Source image</label>
+                <select id="step3-source-image" aria-label="Step 3 source image"></select>
+              </div>
+              <div class="form-group">
+                <label>Duration (sec)</label>
+                <input id="step3-duration" type="number" min="2" max="20" value="5" aria-label="Step 3 duration in seconds">
+              </div>
+              <div class="form-group">
+                <label>Aspect ratio</label>
+                <select id="step3-aspect" aria-label="Step 3 aspect ratio">
+                  <option value="16:9" selected>16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Resolution</label>
+                <select id="step3-resolution" aria-label="Step 3 resolution">
+                  <option value="480p">480p</option>
+                  <option value="720p" selected>720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+              </div>
+            </div>
+            <div class="estimate-row">
+              <span class="estimate-label">Estimated API cost</span>
+              <span id="step3-cost" class="estimate-amount" aria-live="polite">—</span>
+            </div>
+            <div class="step-actions-row">
+              <button type="button" class="btn btn-primary btn-run step-run-btn" data-step="generate_video">Generate video</button>
+              <button id="import-video-btn" class="btn">Import video</button>
+              <input id="import-video-input" type="file" class="hidden" title="Import video file">
+            </div>
+            <div id="step3-error" class="input-error" role="alert"></div>
+          </section>
+        </div>
+
+        <div class="panel viewer-panel">
+          <div class="form-group">
+            <label for="viewer-asset-select">Select media</label>
+            <select id="viewer-asset-select" aria-label="Select media for preview"></select>
+          </div>
+
+          <div id="viewer-meta" class="helper-text"></div>
+
+          <div id="viewer-frame" class="viewer-frame">
+            <div id="viewer-empty" class="helper-text">No media available for this type.</div>
+            <img id="viewer-image" class="viewer-media hidden" alt="Media preview">
+            <video id="viewer-video" class="viewer-media hidden" controls></video>
+          </div>
+
+          <div class="step-actions-row">
+            <button id="viewer-use-source-btn" class="btn">Use as video source</button>
+            <button id="viewer-edit-btn" class="btn">Edit</button>
+            <button id="viewer-archive-btn" class="btn">Archive</button>
+            <button id="viewer-delete-btn" class="btn">Delete</button>
           </div>
         </div>
-        <div id="steps" class="steps-list"></div>
-      </section>
-
-      <section class="cost-panel">
-        <div class="panel-header">
-          <h2>Cost estimate</h2>
-          <button id="estimate-btn" class="btn">Estimate</button>
         </div>
-        <div id="cost-display" class="cost-display"></div>
       </section>
 
-      <section class="run-panel">
-        <button id="run-btn" class="btn btn-run" disabled>Run procedure</button>
-        <p id="run-hint" class="hint">Estimate cost first, then run.</p>
+      <section class="panel">
+        <h2>Run history</h2>
+        <div id="run-history" class="run-history"></div>
       </section>
 
-      <section id="progress-panel" class="progress-panel hidden">
-        <h2>Progress</h2>
-        <div id="progress-steps" class="progress-steps"></div>
-        <div id="progress-log" class="progress-log"></div>
+      <section class="panel">
+        <details id="log-details">
+          <summary>Activity log</summary>
+          <pre id="activity-log" class="progress-log" aria-live="polite"></pre>
+        </details>
       </section>
 
-      <section id="outputs-panel" class="outputs-panel hidden">
-        <h2>Outputs</h2>
-        <div id="outputs-gallery" class="outputs-gallery"></div>
-      </section>
-  <div id="lightbox" class="lightbox hidden">
-    <button id="lightbox-close" class="lightbox-close" aria-label="Close">×</button>
-    <div class="lightbox-content">
-      <img id="lightbox-img" class="lightbox-media hidden" alt="Full size">
-      <video id="lightbox-video" class="lightbox-media hidden" controls></video>
-    </div>
-  </div>
+      <div id="lightbox" class="lightbox hidden">
+        <button id="lightbox-close" class="lightbox-close" aria-label="Close">×</button>
+        <div class="lightbox-content">
+          <img id="lightbox-img" class="lightbox-media hidden" alt="Full size">
+          <video id="lightbox-video" class="lightbox-media hidden" controls></video>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -72,169 +215,6 @@
       <div class="modal-actions">
         <button id="modal-cancel" class="btn">Cancel</button>
         <button id="modal-confirm" class="btn btn-primary">Confirm</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="save-modal" class="modal hidden">
-    <div class="modal-content">
-      <h2 id="save-modal-title">Save new procedure</h2>
-      <div class="form-group">
-        <label>Name</label>
-        <input id="save-name" type="text" placeholder="my_procedure">
-      </div>
-      <div class="modal-actions">
-        <button id="save-cancel" class="btn">Cancel</button>
-        <button id="save-ok" class="btn btn-primary">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="step-modal" class="modal hidden">
-    <div class="modal-content step-modal-content">
-      <h2 id="step-modal-title">Add step</h2>
-      <div class="form-group" id="step-type-group">
-        <label>Type</label>
-        <select id="new-step-type">
-          <option value="ai_image">Image generation</option>
-          <option value="ai_text">Text / LLM</option>
-          <option value="ai_video">Video generation</option>
-          <option value="custom">Save outputs</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Name</label>
-        <input id="new-step-name" type="text" placeholder="Step name">
-      </div>
-      <div class="form-group">
-        <label>Output key</label>
-        <input id="new-step-output-key" type="text" placeholder="output_key">
-      </div>
-      <div class="form-group" id="new-step-model-group">
-        <label>Model</label>
-        <select id="new-step-model"></select>
-      </div>
-      <div class="form-group hidden" id="new-step-from-key-group">
-        <label>From key (previous step output)</label>
-        <input id="new-step-from-key" type="text" placeholder="generated_image">
-      </div>
-      <div class="form-group" id="new-step-prompt-group">
-        <label>Prompt</label>
-        <textarea id="new-step-prompt" rows="3" placeholder="Describe the image..."></textarea>
-      </div>
-      <div class="form-group hidden" id="new-step-llm-model-group">
-        <label>Sub-model (e.g. google/gemini-flash-1.5)</label>
-        <input id="new-step-llm-model" type="text" placeholder="google/gemini-flash-1.5">
-      </div>
-      <div class="form-group hidden" id="new-step-image-params-group">
-        <label>Image parameters</label>
-        <div class="params-grid">
-          <div class="form-group">
-            <label>Num images</label>
-            <input id="new-step-num-images" type="number" min="1" value="1">
-          </div>
-          <div class="form-group">
-            <label>Seed</label>
-            <input id="new-step-seed" type="number" placeholder="random">
-          </div>
-          <div class="form-group">
-            <label>Aspect ratio</label>
-            <select id="new-step-aspect-ratio">
-              <option value="auto">auto</option>
-              <option value="21:9">21:9</option>
-              <option value="16:9">16:9</option>
-              <option value="3:2">3:2</option>
-              <option value="4:3">4:3</option>
-              <option value="5:4">5:4</option>
-              <option value="1:1">1:1</option>
-              <option value="4:5">4:5</option>
-              <option value="3:4">3:4</option>
-              <option value="2:3">2:3</option>
-              <option value="9:16">9:16</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Resolution</label>
-            <select id="new-step-resolution">
-              <option value="0.5K">0.5K</option>
-              <option value="1K" selected>1K</option>
-              <option value="2K">2K</option>
-              <option value="4K">4K</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Output format</label>
-            <select id="new-step-output-format">
-              <option value="jpeg">jpeg</option>
-              <option value="png" selected>png</option>
-              <option value="webp">webp</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Safety tolerance (1–6)</label>
-            <select id="new-step-safety-tolerance">
-              <option value="1">1 (strict)</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4" selected>4</option>
-              <option value="5">5</option>
-              <option value="6">6 (permissive)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      <div class="form-group hidden" id="new-step-video-params-group">
-        <label>Video parameters</label>
-        <div class="params-grid">
-          <div class="form-group" id="video-aspect-ratio-group">
-            <label>Aspect ratio</label>
-            <select id="new-step-video-aspect-ratio">
-              <option value="auto">auto</option>
-              <option value="21:9">21:9</option>
-              <option value="16:9" selected>16:9</option>
-              <option value="4:3">4:3</option>
-              <option value="1:1">1:1</option>
-              <option value="3:4">3:4</option>
-              <option value="9:16">9:16</option>
-            </select>
-          </div>
-          <div class="form-group" id="video-resolution-group">
-            <label>Resolution</label>
-            <select id="new-step-video-resolution">
-              <option value="auto">auto</option>
-              <option value="480p">480p</option>
-              <option value="720p" selected>720p</option>
-              <option value="1080p">1080p</option>
-            </select>
-          </div>
-          <div class="form-group" id="video-duration-group">
-            <label>Duration (seconds)</label>
-            <select id="new-step-video-duration">
-              <option value="4">4</option>
-              <option value="5" selected>5</option>
-              <option value="6">6</option>
-              <option value="8">8</option>
-              <option value="10">10</option>
-            </select>
-          </div>
-          <div class="form-group" id="video-audio-group">
-            <label>
-              <input id="new-step-video-generate-audio" type="checkbox" checked>
-              Generate audio
-            </label>
-          </div>
-        </div>
-      </div>
-      <div class="form-group hidden" id="new-step-video-image-group">
-        <label>Source image (for image-to-video)</label>
-        <select id="new-step-video-image-source">
-          <option value="">None (text-to-video)</option>
-        </select>
-        <input id="new-step-video-image-url" type="text" class="hidden mt-1" placeholder="Paste image URL..." style="width:100%">
-      </div>
-      <div class="modal-actions">
-        <button id="step-modal-cancel" class="btn">Cancel</button>
-        <button id="step-modal-ok" class="btn btn-primary">Add</button>
       </div>
     </div>
   </div>

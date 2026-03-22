@@ -97,8 +97,9 @@ def _minimax_video_image_to_video(params: dict) -> float:
     Minimax Video — image-to-video
     Official fal pricing: $0.5 per video
     Source: https://fal.ai/models/fal-ai/minimax-video/image-to-video
+    Resolution scaling is a heuristic for the GUI when output size changes.
     """
-    return 0.50
+    return 0.50 * _video_resolution_scale(params)
 
 
 def _wan_v2_2_text_to_video(params: dict) -> float:
@@ -111,10 +112,12 @@ def _wan_v2_2_text_to_video(params: dict) -> float:
     Source: https://fal.ai/models/fal-ai/wan/v2.2-a14b/text-to-video
     """
     resolution = str(params.get("resolution", "720p")).lower()
+    # fal lists 480p / 580p / 720p; GUI also offers 1080p — treat as above 720p tier
     rate = {
         "480p": 0.04,
         "580p": 0.06,
         "720p": 0.08,
+        "1080p": 0.10,
     }.get(resolution, 0.08)
     seconds = _duration_seconds(params.get("duration"), 0)
     if seconds <= 0:
@@ -219,6 +222,24 @@ def _seedance_dimensions(resolution: str, aspect_ratio: str) -> tuple[int, int]:
     return dims[key].get(ar, dims[key]["16:9"])
 
 
+def _video_resolution_scale(params: dict) -> float:
+    """
+    Sub-linear scale vs a 720p canvas at the same aspect_ratio (sqrt pixel-area ratio).
+    Used when fal quotes a single rate but the UI still varies resolution so estimates
+    move with output size. Does not replace official per-resolution tiers where we model them explicitly.
+    """
+    res = str(params.get("resolution", "720p")).lower()
+    ar = str(params.get("aspect_ratio", "16:9")).lower()
+    try:
+        w, h = _seedance_dimensions(res, ar)
+        w0, h0 = _seedance_dimensions("720p", ar)
+    except Exception:
+        return 1.0
+    p = max(1, w * h)
+    p0 = max(1, w0 * h0)
+    return (p / p0) ** 0.5
+
+
 def _kling_v3_pro_image_to_video(params: dict) -> float:
     """
     Kling 3.0 Pro — image-to-video
@@ -235,7 +256,7 @@ def _kling_v3_pro_image_to_video(params: dict) -> float:
         rate = 0.112
     else:
         rate = 0.196 if has_voice else 0.168
-    return rate * seconds
+    return rate * seconds * _video_resolution_scale(params)
 
 
 def _kling_v2_6_pro_image_to_video(params: dict) -> float:
@@ -254,7 +275,7 @@ def _kling_v2_6_pro_image_to_video(params: dict) -> float:
         rate = 0.07
     else:
         rate = 0.168 if has_voice else 0.14
-    return rate * seconds
+    return rate * seconds * _video_resolution_scale(params)
 
 
 def _sora_2_image_to_video(params: dict) -> float:
@@ -264,7 +285,7 @@ def _sora_2_image_to_video(params: dict) -> float:
     Source: https://fal.ai/models/fal-ai/sora-2/image-to-video
     """
     seconds = max(4, min(20, _duration_seconds(params.get("duration"), 4)))
-    return 0.10 * seconds
+    return 0.10 * seconds * _video_resolution_scale(params)
 
 
 def _sora_2_text_to_video(params: dict) -> float:
@@ -274,7 +295,7 @@ def _sora_2_text_to_video(params: dict) -> float:
     Source: https://fal.ai/models/fal-ai/sora-2/text-to-video
     """
     seconds = max(4, min(20, _duration_seconds(params.get("duration"), 4)))
-    return 0.10 * seconds
+    return 0.10 * seconds * _video_resolution_scale(params)
 
 
 def _veo3_1_reference_to_video(params: dict) -> float:
@@ -338,95 +359,131 @@ REGISTRY: dict[str, dict] = {
     "fal-ai/nano-banana-2": {
         "type": "image",
         "description": "Nano Banana 2 — text-to-image (Google, fast, high quality)",
+        "pricing_note": "per image (resolution-based)",
+        "quality_stars": 3,
         "calculate": _nano_banana_2,
     },
     "fal-ai/nano-banana": {
         "type": "image",
         "description": "Nano Banana — text-to-image (original)",
+        "pricing_note": "per image",
+        "quality_stars": 2,
         "calculate": _nano_banana,
     },
     "fal-ai/nano-banana-pro": {
         "type": "image",
         "description": "Nano Banana Pro — text-to-image",
+        "pricing_note": "per image",
+        "quality_stars": 3,
         "calculate": _nano_banana_pro,
     },
     "fal-ai/flux/dev": {
         "type": "image",
         "description": "FLUX.1 [dev] — text-to-image",
+        "pricing_note": "per image",
+        "quality_stars": 2,
         "calculate": _flux_dev,
     },
     "fal-ai/flux/schnell": {
         "type": "image",
         "description": "FLUX.1 [schnell] — text-to-image (fast)",
+        "pricing_note": "per image (fast)",
+        "quality_stars": 1,
         "calculate": _flux_schnell,
     },
     "fal-ai/flux-pro/v1.1-ultra": {
         "type": "image",
         "description": "FLUX1.1 [pro] ultra — text-to-image (2K, high realism)",
+        "pricing_note": "per image",
+        "quality_stars": 3,
         "calculate": _flux_pro_v1_1_ultra,
     },
     "fal-ai/any-llm": {
         "type": "text",
         "description": "Any LLM — unified LLM gateway",
+        "pricing_note": "per call",
+        "quality_stars": 2,
         "calculate": _any_llm,
     },
     "fal-ai/minimax-video/image-to-video": {
         "type": "video",
         "description": "Minimax Video — image-to-video",
+        "pricing_note": "$0.50 per video (estimate scaled by output resolution)",
+        "quality_stars": 1,
         "calculate": _minimax_video_image_to_video,
     },
     "fal-ai/wan/v2.2-a14b/text-to-video": {
         "type": "video",
         "description": "WAN 2.2 — text-to-video",
+        "pricing_note": "per sec (480p/580p/720p/1080p tiers)",
+        "quality_stars": 2,
         "calculate": _wan_v2_2_text_to_video,
     },
     # Seedance (ByteDance)
     "fal-ai/bytedance/seedance/v1/pro/text-to-video": {
         "type": "video",
         "description": "Seedance 1.0 Pro — text-to-video (ByteDance)",
+        "pricing_note": "video-token based",
+        "quality_stars": 3,
         "calculate": _seedance_pro_text_to_video,
     },
     "fal-ai/bytedance/seedance/v1/pro/image-to-video": {
         "type": "video",
         "description": "Seedance 1.0 Pro — image-to-video (ByteDance)",
+        "pricing_note": "video-token based",
+        "quality_stars": 3,
         "calculate": _seedance_pro_image_to_video,
     },
     # Kling
     "fal-ai/kling-video/v3/pro/image-to-video": {
         "type": "video",
         "description": "Kling 3.0 Pro — image-to-video (cinematic, native audio)",
+        "pricing_note": "per sec (audio + resolution scale)",
+        "quality_stars": 3,
         "calculate": _kling_v3_pro_image_to_video,
     },
     "fal-ai/kling-video/v2.6/pro/image-to-video": {
         "type": "video",
         "description": "Kling 2.6 Pro — image-to-video",
+        "pricing_note": "per sec (audio + resolution scale)",
+        "quality_stars": 2,
         "calculate": _kling_v2_6_pro_image_to_video,
     },
     # Sora 2 (OpenAI)
     "fal-ai/sora-2/image-to-video": {
         "type": "video",
         "description": "Sora 2 — image-to-video (OpenAI)",
+        "pricing_note": "$0.10 / sec (× resolution scale)",
+        "quality_stars": 3,
         "calculate": _sora_2_image_to_video,
     },
     "fal-ai/sora-2/text-to-video": {
         "type": "video",
         "description": "Sora 2 — text-to-video (OpenAI)",
+        "pricing_note": "$0.10 / sec (× resolution scale)",
+        "quality_stars": 3,
         "calculate": _sora_2_text_to_video,
     },
     # Veo 3.1 (Google)
     "fal-ai/veo3.1/reference-to-video": {
         "type": "video",
         "description": "Veo 3.1 — reference-to-video (Google, first+last frame)",
+        "pricing_note": "per sec (res+audio)",
+        "quality_stars": 3,
         "calculate": _veo3_1_reference_to_video,
     },
     "fal-ai/veo3.1/image-to-video": {
         "type": "video",
         "description": "Veo 3.1 — image-to-video (Google)",
+        "pricing_note": "per sec (res+audio)",
+        "quality_stars": 3,
         "calculate": _veo3_1_image_to_video,
     },
     "fal-ai/veo3.1/fast/image-to-video": {
         "type": "video",
         "description": "Veo 3.1 Fast — image-to-video (Google, cost-effective)",
+        "pricing_note": "per sec (res+audio)",
+        "quality_stars": 2,
         "calculate": _veo3_1_fast_image_to_video,
     },
 }

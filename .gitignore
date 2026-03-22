@@ -16,5 +16,9 @@ outputs/*
 saved_workflows/*
 !saved_workflows/.gitkeep
 
+# Procedure runtime state
+data/
+procedure_assets/
+
 # OS
 .DS_Store
